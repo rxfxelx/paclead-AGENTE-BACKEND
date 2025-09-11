@@ -7,6 +7,7 @@ import (
     "fmt"
     "io"
     "net/http"
+    "strings"
 
     "pac-lead-agent/internal/types"
 )
@@ -18,7 +19,12 @@ type PacLead struct {
 }
 
 func NewPacLead(base, crm string) *PacLead {
-    return &PacLead{Base: base, CRM: crm, http: &http.Client{}}
+    return &PacLead{Base: trim(base), CRM: trim(crm), http: &http.Client{}}
+}
+
+// trim removes trailing slashes from a base URL.
+func trim(s string) string {
+    return strings.TrimRight(s, "/")
 }
 
 func (p *PacLead) postJSON(ctx context.Context, url string, in any, out any) error {
@@ -77,6 +83,10 @@ func (p *PacLead) Produtos(ctx context.Context, cnpj string, id *string) ([]map[
 // UpdateCRMLead mirrors the :8082 /leads update payload used in the workflow.
 // Provide exactly the fields your CRM expects.
 func (p *PacLead) UpdateCRMLead(ctx context.Context, payload any) error {
+    // Se CRM não configurado, não faz nada
+    if p.CRM == "" {
+        return nil
+    }
     url := p.CRM + "/leads"
     return p.postJSON(ctx, url, payload, nil)
 }
