@@ -15,12 +15,21 @@ type Whats struct {
 }
 
 func NewWhats(base, token string) *Whats {
-    return &Whats{Base: base, Token: token, http: &http.Client{}}
+    return &Whats{Base: trimSlash(base), Token: token, http: &http.Client{}}
+}
+
+// trimSlash remove barras finais de uma URL base para evitar // duplicadas.
+func trimSlash(s string) string {
+    for len(s) > 0 && s[len(s)-1] == '/' {
+        s = s[:len(s)-1]
+    }
+    return s
 }
 
 func (w *Whats) do(ctx context.Context, path string, body any) error {
     buf, _ := json.Marshal(body)
     req, _ := http.NewRequestWithContext(ctx, "POST", w.Base+path, bytes.NewReader(buf))
+    // Alguns provedores usam header "token"; outros "Authorization: Bearer"
     req.Header.Set("token", w.Token)
     req.Header.Set("Accept", "application/json")
     req.Header.Set("Content-Type", "application/json")
@@ -29,7 +38,7 @@ func (w *Whats) do(ctx context.Context, path string, body any) error {
         return err
     }
     defer resp.Body.Close()
-    if resp.StatusCode >= 300 {
+    if resp.StatusCode >= http.StatusMultipleChoices {
         return fmt.Errorf("whats api %s: status %d", path, resp.StatusCode)
     }
     return nil
