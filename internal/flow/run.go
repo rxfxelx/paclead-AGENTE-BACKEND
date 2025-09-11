@@ -9,12 +9,31 @@ import (
 )
 
 func EnsureThread(ctx context.Context, ai *clients.OpenAI, pl *clients.PacLead, number, cnpj string) (string, error) {
-    _, _ = pl.LeadsGeral(ctx, number, cnpj)
+    // Tenta recuperar lead existente e reaproveitar Thread_id
+    if out, err := pl.LeadsGeral(ctx, number, cnpj); err == nil && out != nil {
+        for _, k := range []string{"Thread_id", "thread_id", "thread", "ThreadID"} {
+            if v, ok := out[k]; ok {
+                if s, ok := v.(string); ok && s != "" {
+                    return s, nil
+                }
+            }
+        }
+    }
+    // Cria nova thread e salva no lead
     tid, err := ai.CreateThread(ctx)
-    if err != nil { return "", err }
+    if err != nil {
+        return "", err
+    }
     _, _ = pl.LeadPost(ctx, types.LeadRecord{
-        ID: 0, Nome: "", Numero: number, Status: 1, Lead: 1,
-        ThreadID: tid, DataUltMsg: time.Now().Format("2006-01-02 15:04"), UltMsgNum: "", CNPJCPF: cnpj,
+        ID:         0,
+        Nome:       "",
+        Numero:     number,
+        Status:     1,
+        Lead:       1,
+        ThreadID:   tid,
+        DataUltMsg: time.Now().Format("2006-01-02 15:04"),
+        UltMsgNum:  "",
+        CNPJCPF:    cnpj,
     })
     return tid, nil
 }
