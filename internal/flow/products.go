@@ -24,8 +24,10 @@ func SendProductsCarousel(ctx context.Context, pl *clients.PacLead, whats *clien
         nome, _ := p["nome"].(string)
         desc, _ := p["descricao"].(string)
         preco := fmt.Sprintf("%v", p["preco"])
-        text := strings.ToLower(desc) + "\nPreço:R$" + preco
-        image := fmt.Sprintf("http://paclead.com.br:8889/produtos/imagem?id=%s&id_empresa=1", id)
+        // Texto com descrição e preço formatado
+        text := strings.TrimSpace(desc) + "\nPreço: R$ " + preco
+        // Usa a base do cliente para compor a URL da imagem
+        image := fmt.Sprintf("%s/produtos/imagem?id=%s&id_empresa=%d", pl.Base, id, 1)
         cards = append(cards, map[string]any{
             "text":  text,
             "image": image,
@@ -36,6 +38,8 @@ func SendProductsCarousel(ctx context.Context, pl *clients.PacLead, whats *clien
             }},
         })
     }
-    if len(cards) == 0 { return nil }
+    if len(cards) == 0 {
+        return nil
+    }
     return whats.SendCarousel(ctx, number, "Encante-se com os destaques!", cards)
 }
