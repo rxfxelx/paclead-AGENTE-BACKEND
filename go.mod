@@ -1,4 +1,5 @@
 module pac-lead-agent
 
 go 1.20
-go get github.com/redis/go-redis/v9
+
+require github.com/redis/go-redis/v9 v9.0.0
