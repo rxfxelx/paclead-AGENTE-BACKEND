@@ -26,6 +26,8 @@ type handler struct {
 }
 
 func (h *handler) webhook(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+
 	var payload types.IncomingWebhook
 	if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
 		http.Error(w, "bad payload", http.StatusBadRequest)
@@ -34,8 +36,16 @@ func (h *handler) webhook(w http.ResponseWriter, r *http.Request) {
 
 	instID := strings.TrimSpace(r.Header.Get("X-Instance-ID"))
 	instToken := strings.TrimSpace(r.Header.Get("X-Instance-Token"))
+	orgID := strings.TrimSpace(r.Header.Get("X-Org-ID"))
+	flowID := strings.TrimSpace(r.Header.Get("X-Flow-ID"))
 
-	resp, err := flow.HandleIncomingMessage(r.Context(), h.cfg, payload, flow.WithInstance(instID, instToken))
+	resp, err := flow.HandleIncomingMessage(
+		r.Context(),
+		h.cfg,
+		payload,
+		flow.WithInstance(instID, instToken),
+		flow.WithTenant(orgID, flowID),
+	)
 	if err != nil {
 		log.Println("flow error:", err)
 	}
@@ -46,12 +56,15 @@ func (h *handler) webhook(w http.ResponseWriter, r *http.Request) {
 // webhookDynamic trata caminhos /webhooks/<slug>.
 // O slug não é utilizado nesta versão, mas pode ser usado para multi-tenant no futuro.
 func (h *handler) webhookDynamic(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+
 	// Obtém o slug removendo o prefixo '/webhooks/'
 	slug := strings.TrimPrefix(r.URL.Path, "/webhooks/")
 	if slug == "" || slug == r.URL.Path {
 		http.NotFound(w, r)
 		return
 	}
+
 	var payload types.IncomingWebhook
 	if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
 		http.Error(w, "bad payload", http.StatusBadRequest)
@@ -60,8 +73,17 @@ func (h *handler) webhookDynamic(w http.ResponseWriter, r *http.Request) {
 
 	instID := strings.TrimSpace(r.Header.Get("X-Instance-ID"))
 	instToken := strings.TrimSpace(r.Header.Get("X-Instance-Token"))
+	orgID := strings.TrimSpace(r.Header.Get("X-Org-ID"))
+	flowID := strings.TrimSpace(r.Header.Get("X-Flow-ID"))
 
-	resp, err := flow.HandleIncomingMessage(r.Context(), h.cfg, payload, flow.WithInstance(instID, instToken))
+	resp, err := flow.HandleIncomingMessage(
+		r.Context(),
+		h.cfg,
+		payload,
+		flow.WithInstance(instID, instToken),
+		flow.WithTenant(orgID, flowID),
+		flow.WithSlug(slug),
+	)
 	if err != nil {
 		log.Println("flow error:", err, "slug:", slug)
 	}
