@@ -24,7 +24,7 @@ func EnsureThread(ctx context.Context, ai *clients.OpenAI, pl *clients.PacLead, 
 	if err != nil {
 		return "", err
 	}
-	_, _ = pl.LeafPostCompat(ctx, types.LeadRecord{
+	_, _ = pl.LeadPost(ctx, types.LeadRecord{
 		ID:         0,
 		Nome:       "",
 		Numero:     number,
