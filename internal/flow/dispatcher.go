@@ -14,12 +14,38 @@ type Response struct {
 	Ok bool `json:"ok"`
 }
 
+// (ADICIONADO) chaves de contexto para propagar org/flow/instância
+type ctxKey string
+
+const (
+	ctxOrgIDKey      ctxKey = "org_id"
+	ctxFlowIDKey     ctxKey = "flow_id"
+	ctxInstanceIDKey ctxKey = "instance_id"
+)
+
+// (ADICIONADO) helper para anexar tenant/instância ao contexto
+func withTenantContext(ctx context.Context, orgID, flowID, instID string) context.Context {
+	if orgID != "" {
+		ctx = context.WithValue(ctx, ctxOrgIDKey, orgID)
+	}
+	if flowID != "" {
+		ctx = context.WithValue(ctx, ctxFlowIDKey, flowID)
+	}
+	if instID != "" {
+		ctx = context.WithValue(ctx, ctxInstanceIDKey, instID)
+	}
+	return ctx
+}
+
 func HandleIncomingMessage(ctx context.Context, cfg config.Config, in types.IncomingWebhook, opts ...Option) (Response, error) {
 	// aplica opções (instância, tenant, slug)
 	var o Options
 	for _, fn := range opts {
 		fn(&o)
 	}
+
+	// (ADICIONADO) injeta org/flow/instância no contexto para utilização pelos layers internos
+	ctx = withTenantContext(ctx, o.OrgID, o.FlowID, o.InstanceID)
 
 	// escolhe o token da instância se vier do header; caso contrário, usa o global do cfg
 	token := cfg.UAzapiToken
@@ -30,6 +56,8 @@ func HandleIncomingMessage(ctx context.Context, cfg config.Config, in types.Inco
 	whats := clients.NewWhats(cfg.UAzapiBaseURL, token)
 	ai := clients.NewOpenAI(cfg.OpenAIKey, cfg.OpenAIAssistantID)
 	pl := clients.NewPacLead(cfg.PacLeadBaseURL, cfg.PacLeadCRMBaseURL, cfg.PlatformBaseURL)
+	// (ADICIONADO) cliente dedicado da Plataforma para buscar configurações do agente
+	plat := clients.NewPlatform(cfg.PlatformBaseURL)
 
 	number := extractNumber(in.Body.Message.ChatID)
 	text := strings.TrimSpace(in.Body.Message.Content)
@@ -37,9 +65,16 @@ func HandleIncomingMessage(ctx context.Context, cfg config.Config, in types.Inco
 
 	// Ajusta CNPJ (multi-tenant) via settings; fallback mantém constante
 	cnpj := "23820015000100"
-	if settings, err := pl.GetAgentSettings(ctx, o.OrgID, o.FlowID); err == nil && settings != nil {
+	if settings, err := plat.GetAgentSettings(ctx, o.OrgID, o.FlowID); err == nil && settings != nil {
 		if v, ok := settings["tax_id"].(string); ok && strings.TrimSpace(v) != "" {
 			cnpj = onlyDigits(v)
+		}
+	} else {
+		// (ADICIONADO) fallback para cliente PacLead existente (compatibilidade)
+		if settings, err2 := pl.GetAgentSettings(ctx, o.OrgID, o.FlowID); err2 == nil && settings != nil {
+			if v, ok := settings["tax_id"].(string); ok && strings.TrimSpace(v) != "" {
+				cnpj = onlyDigits(v)
+			}
 		}
 	}
 
