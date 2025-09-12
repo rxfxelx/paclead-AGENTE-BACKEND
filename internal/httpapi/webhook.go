@@ -13,6 +13,9 @@ import (
 
 func RegisterRoutes(mux *http.ServeMux, cfg config.Config) {
 	h := &handler{cfg: cfg}
+	// (ADICIONADO) Healthcheck simples
+	mux.HandleFunc("/healthz", h.health)
+
 	// Compatibilidade com fluxo antigo (prefixo fixo)
 	mux.HandleFunc("/webhooks/paclead-maryjoias", h.webhook)
 	// Webhook padrão para Uazapi (aceita eventos diretos sem slug)
@@ -23,6 +26,12 @@ func RegisterRoutes(mux *http.ServeMux, cfg config.Config) {
 
 type handler struct {
 	cfg config.Config
+}
+
+// (ADICIONADO) Health endpoint
+func (h *handler) health(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusOK)
+	_, _ = w.Write([]byte("ok"))
 }
 
 func (h *handler) webhook(w http.ResponseWriter, r *http.Request) {
@@ -38,6 +47,24 @@ func (h *handler) webhook(w http.ResponseWriter, r *http.Request) {
 	instToken := strings.TrimSpace(r.Header.Get("X-Instance-Token"))
 	orgID := strings.TrimSpace(r.Header.Get("X-Org-ID"))
 	flowID := strings.TrimSpace(r.Header.Get("X-Flow-ID"))
+
+	// (ADICIONADO) Fallback via query-string (compatibilidade com proxies/webhooks que não repassam headers)
+	q := r.URL.Query()
+	if instID == "" {
+		instID = strings.TrimSpace(q.Get("instance_id"))
+	}
+	if instToken == "" {
+		instToken = strings.TrimSpace(q.Get("instance_token"))
+		if instToken == "" {
+			instToken = strings.TrimSpace(q.Get("token"))
+		}
+	}
+	if orgID == "" {
+		orgID = strings.TrimSpace(q.Get("org_id"))
+	}
+	if flowID == "" {
+		flowID = strings.TrimSpace(q.Get("flow_id"))
+	}
 
 	resp, err := flow.HandleIncomingMessage(
 		r.Context(),
@@ -75,6 +102,24 @@ func (h *handler) webhookDynamic(w http.ResponseWriter, r *http.Request) {
 	instToken := strings.TrimSpace(r.Header.Get("X-Instance-Token"))
 	orgID := strings.TrimSpace(r.Header.Get("X-Org-ID"))
 	flowID := strings.TrimSpace(r.Header.Get("X-Flow-ID"))
+
+	// (ADICIONADO) Fallback via query-string
+	q := r.URL.Query()
+	if instID == "" {
+		instID = strings.TrimSpace(q.Get("instance_id"))
+	}
+	if instToken == "" {
+		instToken = strings.TrimSpace(q.Get("instance_token"))
+		if instToken == "" {
+			instToken = strings.TrimSpace(q.Get("token"))
+		}
+	}
+	if orgID == "" {
+		orgID = strings.TrimSpace(q.Get("org_id"))
+	}
+	if flowID == "" {
+		flowID = strings.TrimSpace(q.Get("flow_id"))
+	}
 
 	resp, err := flow.HandleIncomingMessage(
 		r.Context(),
