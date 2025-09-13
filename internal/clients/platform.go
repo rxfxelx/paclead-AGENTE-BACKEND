@@ -1,3 +1,4 @@
+// internal/clients/plataform.go
 package clients
 
 import (
@@ -10,8 +11,8 @@ import (
 )
 
 type Platform struct {
-	Base    string
-	client  *http.Client
+	Base   string
+	client *http.Client
 }
 
 func NewPlatform(base string) *Platform {
@@ -30,10 +31,10 @@ func (p *Platform) GetAgentSettings(ctx context.Context, orgID, flowID string) (
 	if p == nil || p.Base == "" {
 		return nil, fmt.Errorf("platform base url not configured")
 	}
-	req, err := http.NewRequestWithContext(ctx, "GET", p.Base+"/api/agent/settings", nil)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, p.Base+"/api/agent/settings", nil)
 	if err != nil {
 		return nil, err
-    }
+	}
 	// Multi-tenant headers
 	if strings.TrimSpace(orgID) != "" {
 		req.Header.Set("X-Org-ID", orgID)
@@ -49,8 +50,8 @@ func (p *Platform) GetAgentSettings(ctx context.Context, orgID, flowID string) (
 	}
 	defer res.Body.Close()
 
-	// Se a plataforma ainda não tem registro, retornamos nil para o caller usar fallback.
 	if res.StatusCode == http.StatusNotFound {
+		// Sem config salva ainda
 		return nil, nil
 	}
 	if res.StatusCode >= 400 {
