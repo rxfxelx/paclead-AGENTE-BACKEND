@@ -1,3 +1,4 @@
+// internal/flow/prompt.go
 package flow
 
 import "strings"
